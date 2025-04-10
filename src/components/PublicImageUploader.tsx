@@ -1,14 +1,37 @@
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
+import { Download, Upload } from "lucide-react";
 
 export function PublicImageUploader() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [processedImageUrl, setProcessedImageUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showAnimation, setShowAnimation] = useState(false);
+
+  useEffect(() => {
+    if (isLoading) {
+      const interval = setInterval(() => {
+        setUploadProgress((prev) => {
+          const newProgress = prev + (100 - prev) * 0.1;
+          return newProgress > 95 ? 95 : newProgress;
+        });
+      }, 300);
+      return () => clearInterval(interval);
+    } else if (!isLoading && uploadProgress > 0) {
+      setUploadProgress(100);
+      const timeout = setTimeout(() => {
+        setUploadProgress(0);
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+  }, [isLoading, uploadProgress]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -16,6 +39,7 @@ export function PublicImageUploader() {
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
       setProcessedImageUrl(null);
+      setUploadProgress(0);
     }
   };
 
@@ -26,6 +50,8 @@ export function PublicImageUploader() {
     }
 
     setIsLoading(true);
+    setUploadProgress(10);
+    setShowAnimation(true);
 
     try {
       const formData = new FormData();
@@ -47,11 +73,17 @@ export function PublicImageUploader() {
       // Create a blob from the response
       const blob = await response.blob();
       const imageUrl = URL.createObjectURL(blob);
-      setProcessedImageUrl(imageUrl);
-      toast.success("تمت إزالة الخلفية بنجاح!");
+      
+      // Small delay to ensure animation completes
+      setTimeout(() => {
+        setProcessedImageUrl(imageUrl);
+        toast.success("تمت إزالة الخلفية بنجاح!");
+        setShowAnimation(false);
+      }, 500);
     } catch (error) {
       console.error("Error removing background:", error);
       toast.error(error.message || "حدث خطأ أثناء إزالة الخلفية");
+      setShowAnimation(false);
     } finally {
       setIsLoading(false);
     }
@@ -69,13 +101,15 @@ export function PublicImageUploader() {
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto p-6 space-y-6 bg-white rounded-lg shadow-md text-right">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold mb-2">أداة إزالة خلفية الصور</h2>
-        <p className="text-muted-foreground">قم بتحميل صورة وإزالة خلفيتها بنقرة واحدة</p>
+    <div className="w-full max-w-3xl mx-auto space-y-6 text-right">
+      <div className="text-center mb-8">
+        <p className="text-muted-foreground dark:text-gray-400">قم بتحميل صورة وإزالة خلفيتها بنقرة واحدة</p>
       </div>
 
-      <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg border-gray-300 hover:border-primary cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+      <div 
+        className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg border-gray-300 dark:border-gray-700 hover:border-primary dark:hover:border-primary cursor-pointer transition-all bg-card/50 dark:bg-gray-800/30 backdrop-blur-sm" 
+        onClick={() => fileInputRef.current?.click()}
+      >
         <input
           type="file"
           ref={fileInputRef}
@@ -85,33 +119,60 @@ export function PublicImageUploader() {
         />
         {previewUrl ? (
           <div className="w-full">
-            <img src={previewUrl} alt="Preview" className="max-h-64 mx-auto object-contain" />
-            <p className="text-center mt-2 text-sm text-gray-500">انقر لتغيير الصورة</p>
+            <img src={previewUrl} alt="Preview" className="max-h-64 mx-auto object-contain rounded-md shadow-md transition-all duration-200 hover:scale-[1.02]" />
+            <p className="text-center mt-2 text-sm text-gray-500 dark:text-gray-400">انقر لتغيير الصورة</p>
           </div>
         ) : (
-          <div className="text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            <p className="mt-2 text-sm text-gray-500">انقر لاختيار صورة أو اسحبها وأفلتها هنا</p>
+          <div className="text-center p-8">
+            <Upload className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-600 mb-2" />
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">انقر لاختيار صورة أو اسحبها وأفلتها هنا</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">PNG, JPG, JPEG</p>
           </div>
         )}
       </div>
 
+      {uploadProgress > 0 && (
+        <div className="w-full">
+          <Progress value={uploadProgress} className="h-2 transition-all" />
+          <p className="text-xs text-muted-foreground text-center mt-1">
+            {uploadProgress < 100 ? "جاري المعالجة..." : "اكتملت المعالجة!"}
+          </p>
+        </div>
+      )}
+
       <div className="flex justify-center">
-        <Button onClick={handleUpload} disabled={!selectedFile || isLoading} className="w-full max-w-xs">
+        <Button 
+          onClick={handleUpload} 
+          disabled={!selectedFile || isLoading} 
+          className="w-full max-w-xs bg-gradient-to-r from-primary to-blue-600 dark:from-blue-500 dark:to-purple-600 hover:opacity-90 transition-all"
+        >
           {isLoading ? "جاري المعالجة..." : "إزالة الخلفية"}
         </Button>
       </div>
 
+      {showAnimation && !processedImageUrl && (
+        <div className="space-y-4 mt-8 animate-fade-in">
+          <h3 className="text-xl font-bold text-center">جاري المعالجة</h3>
+          <div className="border rounded-lg p-4 bg-checkered dark:bg-gray-800/30 relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 dark:via-blue-500/10 to-transparent animate-pulse" />
+            <Skeleton className="h-64 w-full rounded-md bg-gray-200/50 dark:bg-gray-700/50" />
+          </div>
+        </div>
+      )}
+
       {processedImageUrl && (
-        <div className="space-y-4">
-          <h3 className="text-xl font-bold text-center">النتيجة</h3>
-          <div className="border rounded-lg p-4 bg-gray-50">
-            <img src={processedImageUrl} alt="Processed" className="max-h-64 mx-auto object-contain" />
+        <div className="space-y-4 mt-8 animate-fade-in">
+          <h3 className="text-xl font-bold text-center bg-gradient-to-r from-primary to-blue-600 dark:from-blue-400 dark:to-purple-400 text-transparent bg-clip-text inline-block mx-auto">النتيجة</h3>
+          <div className="border rounded-lg p-4 bg-checkered dark:bg-gray-800 dark:bg-opacity-30 shadow-xl backdrop-blur-sm transition-all">
+            <img src={processedImageUrl} alt="Processed" className="max-h-64 mx-auto object-contain rounded-md transition-all duration-500 hover:scale-[1.02]" />
           </div>
           <div className="flex justify-center">
-            <Button onClick={downloadImage} variant="outline" className="w-full max-w-xs">
+            <Button 
+              onClick={downloadImage} 
+              variant="outline" 
+              className="w-full max-w-xs gap-2 border-primary text-primary hover:bg-primary/10 dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-400/10 transition-all"
+            >
+              <Download className="h-4 w-4" />
               تحميل الصورة
             </Button>
           </div>
