@@ -1,138 +1,129 @@
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+};
+
+const REMOVE_BG_URL = "https://api.remove.bg/v1.0/removebg";
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      headers: corsHeaders,
+    });
   }
 
   try {
-    // Check if request is authenticated
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
-    )
-
-    // Check if user is authenticated
-    const {
-      data: { user },
-    } = await supabaseClient.auth.getUser()
-
-    if (!user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { 
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
+    if (req.method !== "POST") {
+      throw new Error("Method not allowed");
     }
 
-    // Get the API key from the config table
+    // Get the API key from Supabase database
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } }
+    );
+
     const { data: configData, error: configError } = await supabaseClient
-      .from('config')
-      .select('value')
-      .eq('key', 'REMOVE_BG_API_KEY')
-      .single()
+      .from("config")
+      .select("value")
+      .eq("key", "REMOVE_BG_API_KEY")
+      .single();
 
     if (configError || !configData) {
-      console.error('Error fetching API key:', configError)
-      return new Response(
-        JSON.stringify({ error: 'Failed to retrieve API key' }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
+      console.error("Error fetching API key:", configError);
+      throw new Error("Failed to fetch API key");
     }
 
-    // Process the request body
-    if (req.method !== 'POST') {
-      return new Response(
-        JSON.stringify({ error: 'Method not allowed' }),
-        { 
-          status: 405,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
+    const REMOVE_BG_API_KEY = configData.value;
+
+    // Parse the form data from the request
+    const formData = await req.formData();
+    const imageFile = formData.get("image");
+
+    if (!imageFile || !(imageFile instanceof File)) {
+      throw new Error("No image file provided");
     }
 
-    const formData = await req.formData()
-    const image = formData.get('image')
-    
-    if (!image || !(image instanceof File)) {
-      return new Response(
-        JSON.stringify({ error: 'No image provided' }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
-    }
+    // Create a new FormData object for the API request
+    const removeBgFormData = new FormData();
+    removeBgFormData.append("image_file", imageFile);
+    removeBgFormData.append("size", "auto");
 
-    // Prepare to forward the request to Remove.bg
-    const removeBgFormData = new FormData()
-    removeBgFormData.append('image_file', image)
-    removeBgFormData.append('size', 'auto')
-
-    // Forward the request to Remove.bg API
-    const removeBgResponse = await fetch('https://api.remove.bg/v1.0/removebg', {
-      method: 'POST',
+    // Send request to Remove.bg API
+    const response = await fetch(REMOVE_BG_URL, {
+      method: "POST",
       headers: {
-        'X-Api-Key': configData.value,
+        "X-Api-Key": REMOVE_BG_API_KEY,
       },
       body: removeBgFormData,
-    })
+    });
 
-    if (!removeBgResponse.ok) {
-      const errorText = await removeBgResponse.text()
-      console.error('Remove.bg API error:', errorText)
-      return new Response(
-        JSON.stringify({ 
-          error: 'Error from Remove.bg API', 
-          details: errorText 
-        }),
-        { 
-          status: removeBgResponse.status,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Remove.bg API error: ${response.status} - ${errorText}`);
+      throw new Error(`Remove.bg API error: ${response.status}`);
     }
 
-    // Get the processed image and return it
-    const processedImageBuffer = await removeBgResponse.arrayBuffer()
-    
-    return new Response(
-      processedImageBuffer,
-      { 
-        status: 200,
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'image/png',
-          'Content-Disposition': 'attachment; filename="processed-image.png"'
-        } 
-      }
-    )
+    // Get the processed image as a blob
+    const imageBlob = await response.blob();
+
+    // Return the processed image
+    return new Response(imageBlob, {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "image/png",
+      },
+    });
   } catch (error) {
-    console.error('Unexpected error:', error)
+    console.error("Error:", error.message);
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
-      { 
+      JSON.stringify({ error: error.message || "Unknown error" }),
+      {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+        },
       }
-    )
+    );
   }
-})
+});
+
+// Helper function to create Supabase client
+function createClient(supabaseUrl, supabaseKey, options) {
+  return {
+    from: (table) => ({
+      select: (columns) => ({
+        eq: (column, value) => ({
+          single: () => {
+            return fetch(`${supabaseUrl}/rest/v1/${table}?${column}=eq.${encodeURIComponent(value)}&select=${columns}`, {
+              headers: {
+                "apikey": supabaseKey,
+                "Authorization": `Bearer ${supabaseKey}`,
+              },
+            })
+            .then(response => {
+              if (!response.ok) throw new Error('Failed to fetch data');
+              return response.json();
+            })
+            .then(data => {
+              if (data && data.length > 0) {
+                return { data: data[0], error: null };
+              }
+              return { data: null, error: { message: "No data found" } };
+            })
+            .catch(error => {
+              return { data: null, error: { message: error.message } };
+            });
+          }
+        })
+      })
+    })
+  };
+}

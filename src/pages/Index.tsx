@@ -1,22 +1,9 @@
 
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 const Index = () => {
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        navigate("/dashboard");
-      }
-    };
-
-    checkAuth();
-  }, [navigate]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4" dir="rtl">
@@ -26,11 +13,8 @@ const Index = () => {
           قم بإزالة خلفية أي صورة بنقرة واحدة. أداة سهلة الاستخدام تعتمد على أحدث تقنيات الذكاء الاصطناعي.
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button size="lg" onClick={() => navigate("/auth")} className="min-w-[150px]">
-            تسجيل الدخول
-          </Button>
-          <Button size="lg" variant="outline" onClick={() => navigate("/auth")} className="min-w-[150px]">
-            إنشاء حساب جديد
+          <Button size="lg" onClick={() => navigate("/remove-bg")} className="min-w-[150px]">
+            استخدم الأداة الآن
           </Button>
         </div>
       </div>
