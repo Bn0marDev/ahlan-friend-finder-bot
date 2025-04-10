@@ -107,7 +107,7 @@ export function PublicImageUploader() {
       </div>
 
       <div 
-        className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg border-gray-300 dark:border-gray-700 hover:border-primary dark:hover:border-primary cursor-pointer transition-all bg-card/50 dark:bg-gray-800/30 backdrop-blur-sm" 
+        className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg border-gray-300 dark:border-gray-700 hover:border-primary dark:hover:border-primary cursor-pointer transition-all bg-card/30 dark:bg-gray-800/20 backdrop-blur-sm" 
         onClick={() => fileInputRef.current?.click()}
       >
         <input
@@ -133,7 +133,7 @@ export function PublicImageUploader() {
 
       {uploadProgress > 0 && (
         <div className="w-full">
-          <Progress value={uploadProgress} className="h-2 transition-all" />
+          <Progress value={uploadProgress} className="h-2 transition-all bg-gray-200 dark:bg-gray-700" />
           <p className="text-xs text-muted-foreground text-center mt-1">
             {uploadProgress < 100 ? "جاري المعالجة..." : "اكتملت المعالجة!"}
           </p>
@@ -144,7 +144,7 @@ export function PublicImageUploader() {
         <Button 
           onClick={handleUpload} 
           disabled={!selectedFile || isLoading} 
-          className="w-full max-w-xs bg-gradient-to-r from-primary to-blue-600 dark:from-blue-500 dark:to-purple-600 hover:opacity-90 transition-all"
+          className="w-full max-w-xs bg-primary hover:bg-primary/90 transition-all"
         >
           {isLoading ? "جاري المعالجة..." : "إزالة الخلفية"}
         </Button>
@@ -153,8 +153,8 @@ export function PublicImageUploader() {
       {showAnimation && !processedImageUrl && (
         <div className="space-y-4 mt-8 animate-fade-in">
           <h3 className="text-xl font-bold text-center">جاري المعالجة</h3>
-          <div className="border rounded-lg p-4 bg-checkered dark:bg-gray-800/30 relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 dark:via-blue-500/10 to-transparent animate-pulse" />
+          <div className="border rounded-lg p-4 bg-checkered dark:bg-gray-800/30 relative overflow-hidden frosted-glass">
+            <div className="absolute inset-0 bg-white/10 dark:bg-white/5 backdrop-blur-lg animate-pulse" />
             <Skeleton className="h-64 w-full rounded-md bg-gray-200/50 dark:bg-gray-700/50" />
           </div>
         </div>
@@ -162,15 +162,15 @@ export function PublicImageUploader() {
 
       {processedImageUrl && (
         <div className="space-y-4 mt-8 animate-fade-in">
-          <h3 className="text-xl font-bold text-center bg-gradient-to-r from-primary to-blue-600 dark:from-blue-400 dark:to-purple-400 text-transparent bg-clip-text inline-block mx-auto">النتيجة</h3>
-          <div className="border rounded-lg p-4 bg-checkered dark:bg-gray-800 dark:bg-opacity-30 shadow-xl backdrop-blur-sm transition-all">
+          <h3 className="text-xl font-bold text-center text-foreground dark:text-white">النتيجة</h3>
+          <div className="border rounded-lg p-4 bg-checkered dark:bg-gray-800/30 shadow-xl backdrop-blur-sm transition-all">
             <img src={processedImageUrl} alt="Processed" className="max-h-64 mx-auto object-contain rounded-md transition-all duration-500 hover:scale-[1.02]" />
           </div>
           <div className="flex justify-center">
             <Button 
               onClick={downloadImage} 
               variant="outline" 
-              className="w-full max-w-xs gap-2 border-primary text-primary hover:bg-primary/10 dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-400/10 transition-all"
+              className="w-full max-w-xs gap-2 border-primary text-primary hover:bg-primary/10 dark:border-primary dark:text-primary dark:hover:bg-primary/10 transition-all"
             >
               <Download className="h-4 w-4" />
               تحميل الصورة
