@@ -36,4 +36,13 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
+  // Add better error handling for missing dependencies
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-router-dom'],
+    exclude: [],
+  },
+  esbuild: {
+    // Enable JSX in TS files
+    jsx: 'automatic',
+  },
 }));
